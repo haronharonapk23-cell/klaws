@@ -3,6 +3,7 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 load_dotenv()
 VT = "https://www.virustotal.com/api/v3"
@@ -49,6 +50,11 @@ def summarize(sha, j):
     return {"verdict": verdict, "sha256": sha, "name": a.get("meaningful_name"),
             "type": a.get("type_description"), "size": a.get("size"),
             "malicious": mal, "suspicious": sus, "total": total, "engines": engines}
+
+
+@app.get("/")
+async def home():
+    return FileResponse("index.html")
 
 
 @app.get("/api/config")
