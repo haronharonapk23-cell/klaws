@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>klaws antivirus web</title>
+<style>
+:root{--bg:#eaf0f2;--ink:#12303a;--mut:#5d727a;--line:#c5d3d8;--acc:#1f6f8b;--bad:#b8321f;--warn:#c98a0b;--ok:#3f7d5a;--na:#9fb0b6;--sf:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1a1f;--ink:#e3eef1;--mut:#8fa5ad;--line:#27404a;--acc:#5fb4d1;--sf:#16252c;--bad:#e5604a;--warn:#e0a93a;--ok:#62b585;--na:#4a6570}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Noto Sans Arabic","Segoe UI",system-ui,sans-serif}
+main{max-width:860px;margin:0 auto;padding:16px}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+h1{font-size:1.4rem;margin:0}
+h2,h3{margin:.2em 0}
+.sub{color:var(--mut);margin:.3em 0 1em}
+.lang button{background:none;border:1px solid var(--line);color:var(--ink);padding:4px 10px;cursor:pointer;border-radius:6px}
+.lang button[aria-pressed=true]{background:var(--acc);color:#fff;border-color:var(--acc)}
+.bar{display:flex;gap:8px;flex-wrap:wrap}
+input[type=text]{flex:1 1 260px;min-width:0;padding:12px;border:1px solid var(--line);border-radius:6px;background:var(--sf);color:var(--ink);font:14px ui-monospace,Consolas,monospace}
+button,.btn{padding:12px 18px;border:0;border-radius:6px;background:var(--acc);color:#fff;font:inherit;cursor:pointer}
+.btn.alt,button.alt{background:var(--sf);color:var(--ink);border:1px solid var(--line)}
+button:disabled{opacity:.5;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+#st{min-height:1.6em;margin:.6em 0;color:var(--mut)}#st.err{color:var(--bad);font-weight:600}
+.panel{background:var(--sf);border:1px solid var(--line);border-radius:6px;padding:14px;margin:12px 0}
+.banner{background:var(--sf);border:1px solid var(--line);border-inline-start:10px solid var(--na);border-radius:6px;padding:14px}
+.banner[data-v=malicious]{border-inline-start-color:var(--bad)}.banner[data-v=suspicious]{border-inline-start-color:var(--warn)}.banner[data-v=no_detections]{border-inline-start-color:var(--ok)}
+.ratio{font-size:1.6rem;font-weight:700;margin:.2em 0}
+dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;margin:0}dd{margin:0;overflow-wrap:anywhere}dt{color:var(--mut)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(14px,1fr));gap:3px;margin:10px 0}
+.grid i{aspect-ratio:1;border-radius:2px;background:var(--ok)}
+.grid i.malicious{background:var(--bad)}.grid i.suspicious{background:var(--warn)}.grid i.na{background:none;border:1px solid var(--na)}
+table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:start;padding:5px 8px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.chk{padding-inline-start:1.2em}.chk .na{color:var(--mut)}
+.hist button{display:block;width:100%;text-align:start;background:none;color:var(--ink);border-bottom:1px solid var(--line);border-radius:0;padding:8px 0}
+.hist small{color:var(--mut)}
+[hidden]{display:none!important}
+@media print{.noprint{display:none!important}body{background:#fff;color:#000}}
+</style>
+</head>
+<body>
+<main>
+<header>
+ <h1>klaws antivirus web</h1>
+ <div class="lang noprint" role="group" aria-label="Language">
+  <button data-l="ar">العربية</button><button data-l="fr">Français</button><button data-l="en">English</button>
+ </div>
+</header>
+<p class="sub" data-i="sub"></p>
+<div class="bar noprint">
+ <input type="text" id="hash" spellcheck="false" autocomplete="off" data-p="hashPh">
+ <button id="scan" data-i="scan"></button>
+ <label class="btn alt" for="file" data-i="upload"></label>
+ <input type="file" id="file" accept=".apk" hidden>
+</div>
+<div id="st" role="status"></div>
+<section id="res" hidden></section>
+<section class="panel hist noprint"><h3 data-i="history"></h3><div id="hist"></div></section>
+</main>
+<script>
+const T={
+en:{sub:"Check an Android APK or a SHA-256 hash against the antivirus engines aggregated by VirusTotal.",hashPh:"Paste a SHA-256 hash",scan:"Scan",upload:"Upload APK",loading:"Looking up the report…",hashing:"Computing the hash in your browser…",uploading:"Uploading to VirusTotal…",analyzing:"Analyzing",
+v_malicious:"Malicious",v_suspicious:"Suspicious",v_no_detections:"Clean according to available results",v_unknown:"Unknown: never analyzed",
+note_malicious:"Several engines flagged this file. Do not install it.",note_suspicious:"Some engines flagged this file. Be careful.",note_no_detections:"No engine flagged this file. That does not guarantee it is safe.",note_unknown:"VirusTotal has no report for this hash.",
+engines:"engines flagged it",susp:"suspicious",name:"File name",type:"Type",size:"Size",consent:"Submitting this file sends it to VirusTotal. Its content and metadata may become available to other parties, including security vendors.",agree:"I understand and agree to submit this file",submit:"Submit to VirusTotal",
+static:"Checks on this APK",done:"Performed",unavail:"Unavailable",pkg:"Package",perms:"Permissions",flagged:"sensitive",combos:"Risky combinations",sig:"Signature",urls:"URLs, domains and network indicators",all:"All engines",export:"Export JSON",print:"Print / PDF",history:"History",empty:"No scans yet.",
+e_no_key:"VirusTotal API key missing. Set VT_API_KEY in the server's .env file.",e_bad_key:"VirusTotal rejected the API key.",e_rate_limit:"Rate limit reached. Wait a minute and try again.",e_timeout:"VirusTotal took too long. Try again.",e_network:"Could not reach VirusTotal.",e_bad_hash:"A SHA-256 hash has 64 hexadecimal characters.",e_unsupported_type:"Only .apk files are supported.",e_too_large:"This file is too large for this check.",e_consent_required:"Consent is required before uploading.",e_hash_fail:"Your browser could not hash this file. Paste its SHA-256 instead.",e_androguard_missing:"androguard is not installed on the server.",e_not_valid_apk:"The file could not be read as an APK.",e_generic:"Something went wrong. Try again."},
+fr:{sub:"Vérifiez un APK Android ou un hash SHA-256 auprès des moteurs antivirus agrégés par VirusTotal.",hashPh:"Collez un hash SHA-256",scan:"Analyser",upload:"Envoyer un APK",loading:"Recherche du rapport…",hashing:"Calcul du hash dans votre navigateur…",uploading:"Envoi à VirusTotal…",analyzing:"Analyse en cours",
+v_malicious:"Malveillant",v_suspicious:"Suspect",v_no_detections:"Sain d'après les résultats disponibles",v_unknown:"Inconnu : jamais analysé",
+note_malicious:"Plusieurs moteurs ont signalé ce fichier. Ne l'installez pas.",note_suspicious:"Certains moteurs ont signalé ce fichier. Soyez prudent.",note_no_detections:"Aucun moteur n'a signalé ce fichier. Cela ne garantit pas qu'il soit sûr.",note_unknown:"VirusTotal n'a aucun rapport pour ce hash.",
+engines:"moteurs l'ont signalé",susp:"suspect",name:"Nom du fichier",type:"Type",size:"Taille",consent:"Envoyer ce fichier le transmet à VirusTotal. Son contenu et ses métadonnées peuvent devenir accessibles à des tiers, dont des éditeurs de sécurité.",agree:"Je comprends et j'accepte d'envoyer ce fichier",submit:"Envoyer à VirusTotal",
+static:"Vérifications sur cet APK",done:"Effectué",unavail:"Indisponible",pkg:"Paquet",perms:"Permissions",flagged:"sensibles",combos:"Combinaisons risquées",sig:"Signature",urls:"URL, domaines et indicateurs réseau",all:"Tous les moteurs",export:"Exporter en JSON",print:"Imprimer / PDF",history:"Historique",empty:"Aucune analyse.",
+e_no_key:"Clé API VirusTotal manquante. Définissez VT_API_KEY dans le fichier .env du serveur.",e_bad_key:"VirusTotal a refusé la clé API.",e_rate_limit:"Limite atteinte. Attendez une minute et réessayez.",e_timeout:"VirusTotal met trop de temps à répondre. Réessayez.",e_network:"VirusTotal est injoignable.",e_bad_hash:"Un hash SHA-256 contient 64 caractères hexadécimaux.",e_unsupported_type:"Seuls les fichiers .apk sont acceptés.",e_too_large:"Ce fichier est trop volumineux pour cette vérification.",e_consent_required:"Le consentement est requis avant l'envoi.",e_hash_fail:"Votre navigateur n'a pas pu calculer le hash. Collez son SHA-256.",e_androguard_missing:"androguard n'est pas installé sur le serveur.",e_not_valid_apk:"Ce fichier n'est pas un APK lisible.",e_generic:"Une erreur est survenue. Réessayez."},
+ar:{sub:"افحص ملف APK أو بصمة SHA-256 عبر محركات مضادات الفيروسات التي يجمعها VirusTotal.",hashPh:"الصق بصمة SHA-256",scan:"افحص",upload:"رفع APK",loading:"جارٍ البحث عن التقرير…",hashing:"جارٍ حساب البصمة داخل متصفحك…",uploading:"جارٍ الرفع إلى VirusTotal…",analyzing:"جارٍ التحليل",
+v_malicious:"خبيث",v_suspicious:"مشبوه",v_no_detections:"نظيف حسب النتائج المتاحة",v_unknown:"غير معروف: لم يُحلَّل من قبل",
+note_malicious:"عدة محركات أبلغت عن هذا الملف. لا تثبّته.",note_suspicious:"بعض المحركات أبلغت عن هذا الملف. كن حذراً.",note_no_detections:"لم يُبلغ أي محرك عن هذا الملف، وهذا لا يضمن أنه آمن.",note_unknown:"لا يوجد تقرير في VirusTotal لهذه البصمة.",
+engines:"محركات أبلغت عنه",susp:"مشبوه",name:"اسم الملف",type:"النوع",size:"الحجم",consent:"رفع هذا الملف يرسله إلى VirusTotal، وقد يصبح محتواه وبياناته متاحة لأطراف أخرى منها شركات الأمان.",agree:"أفهم ذلك وأوافق على رفع هذا الملف",submit:"رفع إلى VirusTotal",
+static:"فحوصات هذا الـ APK",done:"تم",unavail:"غير متاح",pkg:"الحزمة",perms:"الأذونات",flagged:"حساسة",combos:"تركيبات خطرة",sig:"التوقيع",urls:"الروابط والنطاقات ومؤشرات الشبكة",all:"كل المحركات",export:"تصدير JSON",print:"طباعة / PDF",history:"السجل",empty:"لا توجد فحوصات بعد.",
+e_no_key:"مفتاح VirusTotal غير موجود. اضبط VT_API_KEY في ملف .env على الخادم.",e_bad_key:"رفض VirusTotal مفتاح API.",e_rate_limit:"تم بلوغ حد الطلبات. انتظر دقيقة ثم أعد المحاولة.",e_timeout:"VirusTotal تأخر في الرد. أعد المحاولة.",e_network:"تعذر الوصول إلى VirusTotal.",e_bad_hash:"بصمة SHA-256 تتكون من 64 خانة سداسية عشرية.",e_unsupported_type:"ملفات .apk فقط مدعومة.",e_too_large:"الملف كبير جداً لهذا الفحص.",e_consent_required:"الموافقة مطلوبة قبل الرفع.",e_hash_fail:"تعذر على المتصفح حساب البصمة. الصق بصمة SHA-256 بدلاً من ذلك.",e_androguard_missing:"androguard غير مثبت على الخادم.",e_not_valid_apk:"تعذرت قراءة الملف كـ APK.",e_generic:"حدث خطأ. أعد المحاولة."}};
+let L=localStorage.getItem('klaws_lang')||(navigator.language||'en').slice(0,2);if(!T[L])L='en';
+const $=s=>document.querySelector(s),t=k=>T[L][k]??T.en[k]??k;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let cur=null,file=null,stat=null;
+const say=(m,e)=>{const s=$('#st');s.textContent=m;s.className=e?'err':''};
+const msg=e=>T[L]['e_'+e.message]?t('e_'+e.message):t('e_generic');
+const reason=r=>T[L]['e_'+r]?t('e_'+r):esc(r);
+async function api(p,o){const r=await fetch(p,o);let j={};try{j=await r.json()}catch{}if(!r.ok)throw new Error(j.detail||'generic');return j}
+
+function applyLang(){
+ document.documentElement.lang=L;document.documentElement.dir=L==='ar'?'rtl':'ltr';
+ document.querySelectorAll('[data-i]').forEach(e=>e.textContent=t(e.dataset.i));
+ document.querySelectorAll('[data-p]').forEach(e=>e.placeholder=t(e.dataset.p));
+ document.querySelectorAll('.lang button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===L));
+ if(cur)render();renderHist();
+}
+document.querySelectorAll('.lang button').forEach(b=>b.onclick=()=>{L=b.dataset.l;localStorage.setItem('klaws_lang',L);applyLang()});
+
+async function scanHash(sha){
+ sha=sha.trim().toLowerCase();
+ if(!/^[a-f0-9]{64}$/.test(sha))return say(t('e_bad_hash'),1);
+ say(t('loading'));
+ try{cur=await api('/api/hash/'+sha);render();say('');remember()}catch(e){say(msg(e),1)}
+}
+$('#scan').onclick=()=>{file=null;stat=null;scanHash($('#hash').value)};
+$('#hash').onkeydown=e=>{if(e.key==='Enter')$('#scan').click()};
+
+$('#file').onchange=async e=>{
+ file=e.target.files[0];if(!file)return;
+ say(t('hashing'));let sha;
+ try{const b=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());sha=[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+ catch{return say(t('e_hash_fail'),1)}
+ $('#hash').value=sha;stat=null;
+ if(file.size<=100*1048576){try{const f=new FormData();f.append('file',file);stat=await api('/api/static',{method:'POST',body:f})}catch(err){stat={available:false,reason:err.message}}}
+ else stat={available:false,reason:'too_large'};
+ await scanHash(sha);
+};
+
+async function submit(){
+ const f=new FormData();f.append('file',file);f.append('consent','true');
+ try{
+  say(t('uploading'));const j=await api('/api/submit',{method:'POST',body:f});
+  for(let i=0;i<200;i++){
+   const a=await api('/api/analysis/'+encodeURIComponent(j.analysis_id));
+   say(`${t('analyzing')} (${a.status})`);if(a.status==='completed')break;
+   await new Promise(r=>setTimeout(r,6000));
+  }
+  await scanHash(j.sha256);
+ }catch(e){say(msg(e),1)}
+}
+
+function staticHtml(){
+ if(!stat)return'';
+ let h=`<div class="panel"><h3>${t('static')}</h3><ul class="chk">`;
+ if(!stat.available)h+=`<li class="na">${t('unavail')}: ${reason(stat.reason)}</li>`;
+ else{
+  h+=`<li>${t('done')}: ${t('pkg')} <b>${esc(stat.package)}</b></li>`;
+  h+=`<li>${t('done')}: ${t('perms')}: ${stat.permissions.length}, ${t('flagged')}: ${stat.sensitive.length}${stat.sensitive.length?' ('+stat.sensitive.map(esc).join(', ')+')':''}</li>`;
+  if(stat.combos.length)h+=`<li>${t('combos')}: ${stat.combos.map(esc).join(' ; ')}</li>`;
+  h+=`<li>${t('done')}: ${t('sig')}: ${stat.signature.length?stat.signature.map(s=>esc(s.subject)+' ('+esc(s.not_before.slice(0,10))+' → '+esc(s.not_after.slice(0,10))+')').join('; '):'—'}</li>`;
+ }
+ return h+`<li class="na">${t('unavail')}: ${t('urls')}</li></ul></div>`;
+}
+
+function render(){
+ const r=cur,v=r.verdict,s=$('#res');s.hidden=false;
+ let h=`<div class="banner" data-v="${v}"><h2>${t('v_'+v)}</h2>`;
+ if(r.total)h+=`<p class="ratio">${r.malicious} / ${r.total} ${t('engines')}${r.suspicious?` · ${r.suspicious} ${t('susp')}`:''}</p>`;
+ h+=`<p>${t('note_'+v)}</p></div>`;
+ h+=`<div class="panel"><dl><dt>SHA-256</dt><dd>${esc(r.sha256)}</dd>`;
+ if(r.name)h+=`<dt>${t('name')}</dt><dd>${esc(r.name)}</dd>`;
+ if(r.type)h+=`<dt>${t('type')}</dt><dd>${esc(r.type)}</dd>`;
+ if(r.size)h+=`<dt>${t('size')}</dt><dd>${(r.size/1048576).toFixed(2)} MB</dd>`;
+ h+=`</dl></div>`;
+ if(v==='unknown'&&file)h+=`<div class="panel noprint"><p>${t('consent')}</p><label><input type="checkbox" id="cb"> ${t('agree')}</label><p><button id="sub" disabled>${t('submit')}</button></p></div>`;
+ h+=staticHtml();
+ if(r.engines.length){
+  const cls=e=>e.category==='malicious'?'malicious':e.category==='suspicious'?'suspicious':['undetected','harmless'].includes(e.category)?'':'na';
+  h+=`<div class="panel"><div class="grid">${r.engines.map(e=>`<i class="${cls(e)}" title="${esc(e.name)}: ${esc(e.result||e.category)}"></i>`).join('')}</div>
+  <details><summary>${t('all')} (${r.engines.length})</summary><table>${r.engines.map(e=>`<tr><td>${esc(e.name)}</td><td>${esc(e.category)}</td><td>${esc(e.result||'')}</td></tr>`).join('')}</table></details></div>`;
+ }
+ h+=`<p class="noprint"><button class="alt" id="exp">${t('export')}</button> <button class="alt" onclick="print()">${t('print')}</button></p>`;
+ s.innerHTML=h;
+ const cb=$('#cb');if(cb){cb.onchange=()=>$('#sub').disabled=!cb.checked;$('#sub').onclick=submit}
+ $('#exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({report:cur,static:stat},null,2)],{type:'application/json'}));a.download=cur.sha256.slice(0,12)+'.json';a.click()};
+}
+
+const hist=()=>{try{return JSON.parse(localStorage.getItem('klaws_hist')||'[]')}catch{return[]}};
+function remember(){
+ const h=hist().filter(x=>x.sha256!==cur.sha256);
+ h.unshift({sha256:cur.sha256,name:cur.name||'',verdict:cur.verdict,ratio:cur.total?`${cur.malicious}/${cur.total}`:'',date:new Date().toISOString().slice(0,16).replace('T',' ')});
+ localStorage.setItem('klaws_hist',JSON.stringify(h.slice(0,30)));renderHist();
+}
+function renderHist(){
+ const h=hist();$('#hist').innerHTML=h.length?h.map((x,i)=>`<button data-h="${i}">${esc(x.name||x.sha256.slice(0,16)+'…')} <b>${esc(t('v_'+x.verdict))}</b> ${esc(x.ratio)}<br><small>${esc(x.date)}</small></button>`).join(''):`<p>${t('empty')}</p>`;
+ $('#hist').querySelectorAll('button').forEach(b=>b.onclick=()=>{file=null;stat=null;$('#hash').value=h[b.dataset.h].sha256;scanHash(h[b.dataset.h].sha256)});
+}
+applyLang();
+</script>
+</body>
+</html>
